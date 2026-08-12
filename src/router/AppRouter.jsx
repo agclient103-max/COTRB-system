@@ -11,6 +11,7 @@ import FinancialPage from '../pages/modules/FinancialPage.jsx'
 import EventsPage from '../pages/modules/EventsPage.jsx'
 import ReportsPage from '../pages/modules/ReportsPage.jsx'
 import SettingsPage from '../pages/modules/SettingsPage.jsx'
+import UiKitPage from '../pages/dev/UiKitPage.jsx'
 
 // Phase 2: every protected route now renders inside AppLayout (Header + Sidebar).
 // Module routes are reachable by direct URL for any signed-in user at this stage —
@@ -33,6 +34,7 @@ export default function AppRouter() {
           <Route path="/events" element={<EventsPage />} />
           <Route path="/reports" element={<ReportsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/ui-kit" element={<UiKitPage />} />
         </Route>
       </Route>
       <Route path="*" element={<NotFound />} />

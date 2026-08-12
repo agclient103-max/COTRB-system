@@ -129,12 +129,33 @@ export const ACCESS_MATRIX = {
 
 /**
  * Returns true if the given permission level grants any access at all.
- * Real enforcement (which actions are allowed, and server-side re-checking)
- * arrives with the modules in Phase 5+ and, eventually, the Express API layer.
- * This helper exists now only so Phase 2 navigation can hide modules a role
- * has zero access to.
+ * Used by the Phase 2 sidebar to hide modules a role has zero access to.
  */
 export function hasModuleAccess(role, moduleKey) {
   const level = ACCESS_MATRIX[moduleKey]?.[role]
   return Boolean(level) && level !== 'NONE'
+}
+
+/**
+ * Returns true if the given permission level includes create ("C") rights.
+ * All non-read-only codes in this matrix are letter combinations that include a literal
+ * "C" (CRUD, CR, CRU, CR_SCOPED, CRUD_SCOPED, ...); read-only and no-access codes
+ * ("READ", "READ_APPROVE", "READ_SCOPED", "NONE") never contain the letter C, so a plain
+ * substring check is a safe, simple way to gate "Add" buttons across every module.
+ */
+export function canCreate(role, moduleKey) {
+  const level = ACCESS_MATRIX[moduleKey]?.[role]
+  return Boolean(level) && level.includes('C')
+}
+
+/** True when the given permission level includes approval rights. */
+export function canApprove(role, moduleKey) {
+  const level = ACCESS_MATRIX[moduleKey]?.[role]
+  return Boolean(level) && level.includes('APPROVE')
+}
+
+/** True when access to a module is limited to the user's own assigned ministry/items. */
+export function isScopedToOwn(role, moduleKey) {
+  const level = ACCESS_MATRIX[moduleKey]?.[role]
+  return Boolean(level) && level.includes('SCOPED')
 }

@@ -73,6 +73,23 @@ export default function Sidebar({ isOpen, onClose }) {
             />
           ))}
         </nav>
+
+        <div className="mt-2 border-t border-ink-800 pt-2">
+          <NavLink
+            to="/ui-kit"
+            onClick={onClose}
+            className={({ isActive }) =>
+              [
+                'flex items-center gap-3 rounded-lg px-3 py-2.5 text-xs font-medium uppercase tracking-wide transition',
+                isActive
+                  ? 'bg-ink-800 text-brass-300'
+                  : 'text-ink-500 hover:bg-ink-800/60 hover:text-brass-300',
+              ].join(' ')
+            }
+          >
+            UI Kit (dev preview)
+          </NavLink>
+        </div>
       </aside>
     </>
   )
