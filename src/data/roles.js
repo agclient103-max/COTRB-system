@@ -154,6 +154,18 @@ export function canApprove(role, moduleKey) {
   return Boolean(level) && level.includes('APPROVE')
 }
 
+/** True if the given permission level includes update ("U") rights. */
+export function canUpdate(role, moduleKey) {
+  const level = ACCESS_MATRIX[moduleKey]?.[role]
+  return Boolean(level) && level.includes('U')
+}
+
+/** True if the given permission level includes delete ("D") rights. */
+export function canDelete(role, moduleKey) {
+  const level = ACCESS_MATRIX[moduleKey]?.[role]
+  return Boolean(level) && level.includes('D')
+}
+
 /** True when access to a module is limited to the user's own assigned ministry/items. */
 export function isScopedToOwn(role, moduleKey) {
   const level = ACCESS_MATRIX[moduleKey]?.[role]

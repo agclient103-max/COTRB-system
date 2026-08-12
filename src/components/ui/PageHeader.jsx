@@ -10,13 +10,14 @@ export default function PageHeader({
   title,
   count,
   countLabel = 'record',
+  countLabelPlural,
   moduleKey,
   addLabel,
   onAdd,
 }) {
   const { user } = useAuth()
   const canAdd = moduleKey ? canCreate(user.role, moduleKey) : false
-  const plural = count === 1 ? countLabel : `${countLabel}s`
+  const plural = count === 1 ? countLabel : (countLabelPlural ?? `${countLabel}s`)
 
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
