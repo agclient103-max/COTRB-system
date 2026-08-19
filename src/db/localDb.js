@@ -13,7 +13,11 @@
  */
 
 const DB_NAME = 'cotrb-local'
-const DB_VERSION = 1
+// Bumped from 1 → 2 to add the 'ministry' and 'events' stores (Phase 6). IndexedDB only
+// creates new stores inside onupgradeneeded, which only fires when the version number
+// increases — anyone who already opened the Phase 5 database at version 1 needs this bump
+// or the new stores would silently never be created in their browser.
+const DB_VERSION = 2
 
 let dbPromise = null
 
@@ -44,7 +48,7 @@ function openDatabase(storeNames) {
 
 // All store names that will ever be used must be declared up front so onupgradeneeded can
 // create them in one pass. Add new module store names here as later phases introduce them.
-const KNOWN_STORES = ['documents', 'personnel']
+const KNOWN_STORES = ['documents', 'personnel', 'ministry', 'events']
 
 function localStorageKey(storeName) {
   return `cotrb.store.${storeName}`
