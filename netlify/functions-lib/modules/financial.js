@@ -159,3 +159,38 @@ export async function getFinancialTotals(db) {
   const expenses = Number(rows.find((r) => r.type === 'Expense')?.total ?? 0)
   return { income, expenses, net: income - expenses }
 }
+
+/**
+ * Real monthly giving average — total income divided by the number of
+ * distinct calendar months that have at least one income transaction.
+ * Replaces the dashboard's previously hardcoded GIVING_STATS.monthlyAverage.
+ */
+export async function getMonthlyGivingAverage(db) {
+  const rows = await db.sql`
+    SELECT COALESCE(SUM(amount) / NULLIF(COUNT(DISTINCT date_trunc('month', date)), 0), 0) AS monthly_avg
+    FROM financial_transactions
+    WHERE type = 'Income'
+  `
+  return Number(rows[0]?.monthly_avg ?? 0)
+}
+
+/**
+ * Real year-to-date income — the actual sum of this calendar year's income
+ * transactions, not the previous hardcoded "8 months elapsed" estimate.
+ */
+export async function getYtdIncome(db) {
+  const rows = await db.sql`
+    SELECT COALESCE(SUM(amount), 0) AS total
+    FROM financial_transactions
+    WHERE type = 'Income' AND date >= date_trunc('year', CURRENT_DATE)
+  `
+  return Number(rows[0]?.total ?? 0)
+}
+
+/** Count of transactions awaiting review — feeds the Dashboard's Pending Approvals widget. */
+export async function getPendingReviewCount(db) {
+  const rows = await db.sql`
+    SELECT COUNT(*)::int AS count FROM financial_transactions WHERE status = 'Pending Review'
+  `
+  return rows[0]?.count ?? 0
+}

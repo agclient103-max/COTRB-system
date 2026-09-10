@@ -140,3 +140,11 @@ export async function deleteDocument(db, { localId, user }) {
     recordLabel: rows[0].title,
   })
 }
+
+/** Count of documents awaiting sign-off — feeds the Dashboard's Pending Approvals widget. */
+export async function getPendingApprovalCount(db) {
+  const rows = await db.sql`
+    SELECT COUNT(*)::int AS count FROM documents WHERE status = 'Pending Approval'
+  `
+  return rows[0]?.count ?? 0
+}
