@@ -13,6 +13,8 @@ import {
 import { NOTIFICATION_CATEGORIES } from '../../data/notificationDefaults.js'
 import { api } from '../../api/client.js'
 import { useToast } from '../../hooks/useToast.js'
+import { getQueue, removeQueueEntry } from '../../utils/syncQueue.js'
+import { resolveConflict, onSyncEvent, flushAllQueues } from '../../utils/syncEngine.js'
 import Table from '../../components/ui/Table.jsx'
 import Badge from '../../components/ui/Badge.jsx'
 import Button from '../../components/ui/Button.jsx'
@@ -24,6 +26,7 @@ import Modal from '../../components/ui/Modal.jsx'
 const TABS = [
   { key: 'users', label: 'Users & Roles' },
   { key: 'permissions', label: 'Permissions' },
+  { key: 'sync', label: 'Sync' },
   { key: 'audit', label: 'Audit Log' },
   { key: 'backup', label: 'Backup & Recovery' },
   { key: 'notifications', label: 'Notifications' },
@@ -372,6 +375,165 @@ function AuditTab() {
   )
 }
 
+function SyncTab() {
+  const { push } = useToast()
+  const [queue, setQueue] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [resolvingId, setResolvingId] = useState(null)
+  const [refreshToken, setRefreshToken] = useState(0)
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      setIsLoading(true)
+      const entries = await getQueue()
+      if (!cancelled) {
+        setQueue(entries)
+        setIsLoading(false)
+      }
+    }
+    load()
+    const unsubscribe = onSyncEvent(load)
+    return () => {
+      cancelled = true
+      unsubscribe()
+    }
+  }, [refreshToken])
+
+  const pending = queue.filter((e) => e.status === 'pending')
+  const conflicts = queue.filter((e) => e.status === 'conflict')
+  const errors = queue.filter((e) => e.status === 'error')
+
+  async function handleResolve(entry, action) {
+    setResolvingId(entry.localId)
+    const result = await resolveConflict(entry.localId, action)
+    if (result.status === 'error') {
+      push(result.message, { tone: 'error' })
+    } else {
+      push('Resolved.', { tone: 'success' })
+    }
+    setResolvingId(null)
+    setRefreshToken((t) => t + 1)
+  }
+
+  async function handleDiscardError(entry) {
+    await removeQueueEntry(entry.localId)
+    push('Removed from the queue.', { tone: 'success' })
+    setRefreshToken((t) => t + 1)
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-xl border border-ink-100 bg-white p-5">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="font-display text-base font-semibold text-ink-900">Offline sync status</h2>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={async () => {
+              await flushAllQueues()
+              setRefreshToken((t) => t + 1)
+            }}
+          >
+            Try syncing now
+          </Button>
+        </div>
+        <p className="text-sm text-ink-500">
+          Changes made while offline are saved on this device and sync automatically once
+          you&rsquo;re back online. {pending.length} waiting to sync
+          {conflicts.length > 0 && `, ${conflicts.length} needing your review`}.
+        </p>
+      </div>
+
+      {conflicts.length > 0 && (
+        <div className="rounded-xl border border-red-200 bg-white p-5">
+          <h2 className="mb-3 font-display text-base font-semibold text-ink-900">
+            Needs your review ({conflicts.length})
+          </h2>
+          <p className="mb-4 text-xs text-ink-400">
+            These changes couldn&rsquo;t sync automatically because something changed on the server
+            in the meantime. Choose how to resolve each one.
+          </p>
+          <ul className="space-y-3">
+            {conflicts.map((entry) => (
+              <li key={entry.localId} className="rounded-lg border border-red-100 bg-red-50/40 p-3">
+                <p className="text-sm font-medium text-ink-800">
+                  {MODULE_LABELS[entry.module] ?? entry.module} · {entry.operation}
+                </p>
+                <p className="mt-1 text-xs text-red-700">{entry.errorMessage}</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {entry.conflictPayload?.existing && (
+                    <Button
+                      size="sm"
+                      variant="brass"
+                      isLoading={resolvingId === entry.localId}
+                      onClick={() => handleResolve(entry, 'merge')}
+                    >
+                      Merge into existing
+                    </Button>
+                  )}
+                  {entry.operation !== 'delete' && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      isLoading={resolvingId === entry.localId}
+                      onClick={() => handleResolve(entry, 'retry-force')}
+                    >
+                      Keep my change anyway
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    isLoading={resolvingId === entry.localId}
+                    onClick={() => handleResolve(entry, 'discard')}
+                  >
+                    Discard my change
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <div className="rounded-xl border border-ink-100 bg-white p-5">
+        <h2 className="mb-3 font-display text-base font-semibold text-ink-900">
+          Waiting to sync ({pending.length})
+        </h2>
+        {isLoading ? (
+          <p className="text-sm text-ink-400">Loading…</p>
+        ) : pending.length === 0 && errors.length === 0 ? (
+          <EmptyState title="All caught up" description="Nothing is waiting to sync." />
+        ) : (
+          <ul className="space-y-2">
+            {[...pending, ...errors].map((entry) => (
+              <li
+                key={entry.localId}
+                className="flex items-center justify-between rounded-md bg-ink-50/60 px-3 py-2 text-sm"
+              >
+                <span className="text-ink-700">
+                  {MODULE_LABELS[entry.module] ?? entry.module} · {entry.operation}
+                </span>
+                {entry.status === 'error' ? (
+                  <div className="flex items-center gap-2">
+                    <Badge tone="danger">error</Badge>
+                    <Button size="sm" variant="ghost" onClick={() => handleDiscardError(entry)}>
+                      Remove
+                    </Button>
+                  </div>
+                ) : (
+                  <Badge tone="warning">pending</Badge>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function BackupTab() {
   const { push } = useToast()
   const [exportError, setExportError] = useState(null)
@@ -552,6 +714,7 @@ export default function SettingsPage() {
 
       {activeTab === 'users' && <UsersTab canManage={canWrite} canRemove={canRemoveAccounts} />}
       {activeTab === 'permissions' && <PermissionsTab />}
+      {activeTab === 'sync' && <SyncTab />}
       {activeTab === 'audit' && <AuditTab />}
       {activeTab === 'backup' && <BackupTab />}
       {activeTab === 'notifications' && <NotificationsTab canWrite={canWrite} />}

@@ -1,11 +1,6 @@
-import { useApiRecordStore } from './useApiRecordStore.js'
+import { useSyncedRecordStore } from './useSyncedRecordStore.js'
+import { SYNC_MODULES } from '../data/syncModules.js'
 
 export function useMinistries({ enabled = true } = {}) {
-  return useApiRecordStore({
-    basePath: '/api/ministries',
-    listKey: 'ministries',
-    itemKey: 'ministry',
-    labelOf: (record) => record.name,
-    enabled,
-  })
+  return useSyncedRecordStore('ministry', { ...SYNC_MODULES.ministry, enabled })
 }

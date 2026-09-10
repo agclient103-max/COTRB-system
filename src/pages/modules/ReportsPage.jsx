@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useAuth } from '../../hooks/useAuth.js'
 import { canUpdate, canDelete, hasModuleAccess } from '../../data/roles.js'
 import { useReports } from '../../hooks/useReports.js'
+import { api } from '../../api/client.js'
 import { MEMBERSHIP_STATS } from '../../data/dashboardMockData.js'
 import { formatNumber, formatUgxCompact } from '../../utils/format.js'
 import PageHeader from '../../components/ui/PageHeader.jsx'
@@ -50,8 +51,32 @@ export default function ReportsPage() {
     updateRecord,
     mergeIntoExisting,
     removeRecord,
-    summary,
   } = useReports({ enabled: canView })
+
+  // `summary` is a live, server-computed cross-module aggregate — it's not
+  // meaningful to cache offline, so it's fetched directly here rather than
+  // through the offline-aware record store.
+  const [summary, setSummary] = useState(null)
+  const [summaryError, setSummaryError] = useState(null)
+
+  useEffect(() => {
+    if (!canView) return undefined
+    let cancelled = false
+    async function loadSummary() {
+      try {
+        const body = await api.get('/api/reports')
+        if (!cancelled) setSummary(body.summary)
+      } catch {
+        if (!cancelled) {
+          setSummaryError('Could not load live statistics — you may be offline.')
+        }
+      }
+    }
+    loadSummary()
+    return () => {
+      cancelled = true
+    }
+  }, [canView])
 
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingId, setEditingId] = useState(null)
@@ -202,6 +227,7 @@ export default function ReportsPage() {
         </h1>
       </div>
       {loadError && <ErrorBanner message={loadError} />}
+      {summaryError && <ErrorBanner message={summaryError} className="mt-2" />}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="Total Members"

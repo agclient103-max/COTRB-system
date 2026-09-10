@@ -1,11 +1,6 @@
-import { useApiRecordStore } from './useApiRecordStore.js'
+import { useSyncedRecordStore } from './useSyncedRecordStore.js'
+import { SYNC_MODULES } from '../data/syncModules.js'
 
 export function useFinancial({ enabled = true } = {}) {
-  return useApiRecordStore({
-    basePath: '/api/financial',
-    listKey: 'transactions',
-    itemKey: 'transaction',
-    labelOf: (record) => record.description,
-    enabled,
-  })
+  return useSyncedRecordStore('financial', { ...SYNC_MODULES.financial, enabled })
 }

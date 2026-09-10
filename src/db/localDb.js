@@ -1,5 +1,6 @@
 const DB_NAME = 'cotrb-local'
-const DB_VERSION = 4
+// Bumped 4 → 5 to add the 'syncQueue' store (Phase B8 — offline sync engine).
+const DB_VERSION = 5
 
 let dbPromise = null
 
@@ -36,6 +37,7 @@ const KNOWN_STORES = [
   'financial',
   'reports',
   'auditLog',
+  'syncQueue',
 ]
 
 function localStorageKey(storeName) {

@@ -1,11 +1,6 @@
-import { useApiRecordStore } from './useApiRecordStore.js'
+import { useSyncedRecordStore } from './useSyncedRecordStore.js'
+import { SYNC_MODULES } from '../data/syncModules.js'
 
 export function useDocuments({ enabled = true } = {}) {
-  return useApiRecordStore({
-    basePath: '/api/documents',
-    listKey: 'documents',
-    itemKey: 'document',
-    labelOf: (record) => record.title,
-    enabled,
-  })
+  return useSyncedRecordStore('documents', { ...SYNC_MODULES.documents, enabled })
 }
