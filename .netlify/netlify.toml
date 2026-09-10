@@ -1,17 +1,15 @@
+functionsDirectory = "D:\\AG Business\\COTRB System\\netlify\\functions"
+functionsDirectoryOrigin = "default"
 headersOrigin = "config"
 redirectsOrigin = "config"
 plugins = []
-
-[database]
-
-[database.migrations]
-path = "D:\\AG Business\\COTRB System\\netlify\\database\\migrations"
 
 [build]
 publish = "D:\\AG Business\\COTRB System\\dist"
 publishOrigin = "config"
 commandOrigin = "config"
 command = "npm run build"
+functions = "D:\\AG Business\\COTRB System\\netlify\\functions"
 
 [build.environment]
 NODE_VERSION = "20"
@@ -27,6 +25,11 @@ NODE_VERSION = "20"
 [build.processing.js]
 
 [build.services]
+
+[database]
+
+[database.migrations]
+path = "D:\\AG Business\\COTRB System\\netlify\\database\\migrations"
 
 [functions]
 

@@ -1,6 +1,15 @@
 -- COTRB Church Management System — Initial Schema
+-- Every module's real backing table, plus the audit log and notification
+-- preferences that used to live only in the browser's IndexedDB.
+--
+-- Numbering strategy (§5.3, now made real): each module has its own Postgres
+-- SEQUENCE. sequence_number is assigned server-side, atomically, at insert
+-- time — this is the authoritative source the frontend's "Pending sync"
+-- placeholder was always waiting for.
+
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
+-- Shared trigger: keeps updated_at current on every UPDATE, on every table.
 CREATE OR REPLACE FUNCTION set_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -193,7 +202,11 @@ CREATE TRIGGER trg_saved_reports_updated_at
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- ============================================================
--- AUDIT LOG
+-- AUDIT LOG — every create/update/merge/delete across every module.
+-- user_id references a Netlify Identity user (lives outside Postgres), so
+-- it's plain text, not a foreign key. user_name/user_role are snapshotted
+-- at write time so history stays readable even if an account is later
+-- removed from Identity.
 -- ============================================================
 CREATE TABLE audit_log (
   id BIGSERIAL PRIMARY KEY,
@@ -209,7 +222,8 @@ CREATE TABLE audit_log (
 CREATE INDEX idx_audit_log_timestamp ON audit_log("timestamp" DESC);
 
 -- ============================================================
--- NOTIFICATION PREFERENCES
+-- NOTIFICATION PREFERENCES — per Identity user, replacing the old
+-- localStorage-per-mock-account version.
 -- ============================================================
 CREATE TABLE notification_preferences (
   user_id TEXT PRIMARY KEY,

@@ -1,3 +1,9 @@
+-- Seeds every module with the same real organizational data already shown in the
+-- frontend demo, so switching the frontend over to this API shows familiar, real
+-- data rather than an empty database. Sequence numbers are reused verbatim from the
+-- frontend seed data for continuity; each table's SEQUENCE is then advanced past the
+-- seeded rows so the next real create continues cleanly (e.g. DOC-2026-011).
+
 -- Documents
 INSERT INTO documents (local_id, sequence_number, title, category, ministry, status, file_name, notes, created_by_id, created_by_name, created_at, updated_at) VALUES ('ed965e84-d22e-4be6-9f4e-e00f90e4ea4a', 'DOC-2026-001', '2026 Parish Budget Proposal', 'Financial', 'Parish Council', 'Approved', NULL, '', NULL, 'System Seed', '2026-08-30T07:09:33.179Z', '2026-08-30T07:09:33.179Z');
 INSERT INTO documents (local_id, sequence_number, title, category, ministry, status, file_name, notes, created_by_id, created_by_name, created_at, updated_at) VALUES ('071dbb8c-5f0d-42dc-a49d-698643e6a2fd', 'DOC-2026-002', 'Parish Council Meeting Minutes — January 2026', 'Meeting Minutes', 'Parish Council', 'Approved', NULL, '', NULL, 'System Seed', '2026-08-31T07:09:33.179Z', '2026-08-31T07:09:33.179Z');
@@ -91,3 +97,4 @@ INSERT INTO saved_reports (local_id, sequence_number, name, type, notes, created
 INSERT INTO saved_reports (local_id, sequence_number, name, type, notes, created_by_id, created_by_name, created_at, updated_at) VALUES ('13e267bf-a581-4240-8715-ed208524fb8c', 'RPT-2026-002', 'Q3 2026 Membership Report', 'Membership Summary', '', NULL, 'Administrator Account', '2026-09-07T07:09:33.180Z', '2026-09-07T07:09:33.180Z');
 INSERT INTO saved_reports (local_id, sequence_number, name, type, notes, created_by_id, created_by_name, created_at, updated_at) VALUES ('574626c5-4f2b-4a25-8c38-18f5cbbeba47', 'RPT-2026-003', 'All-Ministries Activity Report', 'Ministry Activity', 'Coordinator-led areas and fellowship groups.', NULL, 'Rev. David Asiimwe', '2026-09-08T07:09:33.180Z', '2026-09-08T07:09:33.180Z');
 SELECT setval('reports_seq', 3);
+
