@@ -1,12 +1,6 @@
 import Modal from './Modal.jsx'
 import Button from './Button.jsx'
 
-/**
- * §9: near-duplicates entered by a human (e.g. the same person entered separately by two
- * data-entry staff) need a real choice, not just a block. This dialog is only shown for
- * human-entered records — automatic dedup is reserved for system-generated records only,
- * which don't go through this UI at all.
- */
 export default function DuplicateWarningDialog({
   isOpen,
   onClose,

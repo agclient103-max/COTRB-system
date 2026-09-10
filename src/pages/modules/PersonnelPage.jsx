@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth.js'
 import { canUpdate, canDelete, hasModuleAccess } from '../../data/roles.js'
-import EmptyState from '../../components/ui/EmptyState.jsx'
 import { usePersonnel } from '../../hooks/usePersonnel.js'
 import { MINISTRY_NAMES } from '../../data/ministries.js'
 import PageHeader from '../../components/ui/PageHeader.jsx'
@@ -14,17 +14,16 @@ import ErrorBanner from '../../components/ui/ErrorBanner.jsx'
 import Button from '../../components/ui/Button.jsx'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.jsx'
 import DuplicateWarningDialog from '../../components/ui/DuplicateWarningDialog.jsx'
+import EmptyState from '../../components/ui/EmptyState.jsx'
 
 const CATEGORY_OPTIONS = ['Clergy', 'Council', 'Coordinator', 'Staff']
 const STATUS_OPTIONS = ['Active', 'On Leave', 'Vacant', 'Inactive']
-
 const STATUS_TONE = {
   Active: 'success',
   'On Leave': 'warning',
   Vacant: 'neutral',
   Inactive: 'danger',
 }
-
 const EMPTY_FORM = {
   name: '',
   title: '',
@@ -38,6 +37,7 @@ const EMPTY_FORM = {
 
 export default function PersonnelPage() {
   const { user } = useAuth()
+  const canView = hasModuleAccess(user.role, 'personnel')
   const {
     records,
     isLoading,
@@ -46,28 +46,48 @@ export default function PersonnelPage() {
     updateRecord,
     mergeIntoExisting,
     removeRecord,
-  } = usePersonnel()
+  } = usePersonnel({ enabled: canView })
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
-
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [formValues, setFormValues] = useState(EMPTY_FORM)
   const [formError, setFormError] = useState(null)
   const [isSaving, setIsSaving] = useState(false)
-
   const [viewingRecord, setViewingRecord] = useState(null)
   const [deletingRecord, setDeletingRecord] = useState(null)
   const [deleteError, setDeleteError] = useState(null)
   const [isDeleting, setIsDeleting] = useState(false)
-
   const [duplicate, setDuplicate] = useState(null)
 
   const canEdit = canUpdate(user.role, 'personnel')
   const canRemove = canDelete(user.role, 'personnel')
-  const canView = hasModuleAccess(user.role, 'personnel')
+
+  function openAddModal() {
+    setFormError(null)
+    setEditingId(null)
+    setFormValues(EMPTY_FORM)
+    setIsFormOpen(true)
+  }
+
+  useEffect(() => {
+    function openFromUrl() {
+      setFormError(null)
+      setEditingId(null)
+      setFormValues(EMPTY_FORM)
+      setIsFormOpen(true)
+    }
+    if (searchParams.get('action') === 'add' && canView) {
+      openFromUrl()
+      const next = new URLSearchParams(searchParams)
+      next.delete('action')
+      setSearchParams(next, { replace: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
 
   const filteredRecords = useMemo(() => {
     return records.filter((r) => {
@@ -77,13 +97,6 @@ export default function PersonnelPage() {
       return matchesSearch && matchesCategory && matchesStatus
     })
   }, [records, search, categoryFilter, statusFilter])
-
-  function openAddModal() {
-    setFormError(null)
-    setEditingId(null)
-    setFormValues(EMPTY_FORM)
-    setIsFormOpen(true)
-  }
 
   function openEditModal(record) {
     setFormError(null)
@@ -108,7 +121,6 @@ export default function PersonnelPage() {
       ? await updateRecord(editingId, formValues)
       : await addRecord(formValues)
     setIsSaving(false)
-
     if (result.status === 'error') {
       setFormError(result.message)
       return
@@ -123,24 +135,20 @@ export default function PersonnelPage() {
   async function handleMerge() {
     if (!duplicate) return
     const result = await mergeIntoExisting(duplicate.existing.localId, duplicate.pendingValues)
-    if (result.status === 'error') {
-      setFormError(result.message)
-    } else {
-      setIsFormOpen(false)
-    }
+    if (result.status === 'error') setFormError(result.message)
+    else setIsFormOpen(false)
     setDuplicate(null)
   }
 
   async function handleKeepBoth() {
     if (!duplicate) return
     const result = duplicate.editingId
-      ? await updateRecord(duplicate.editingId, duplicate.pendingValues)
+      ? await updateRecord(duplicate.editingId, duplicate.pendingValues, {
+          skipDuplicateCheck: true,
+        })
       : await addRecord(duplicate.pendingValues, { skipDuplicateCheck: true })
-    if (result.status === 'error') {
-      setFormError(result.message)
-    } else {
-      setIsFormOpen(false)
-    }
+    if (result.status === 'error') setFormError(result.message)
+    else setIsFormOpen(false)
     setDuplicate(null)
   }
 
@@ -159,6 +167,19 @@ export default function PersonnelPage() {
       return
     }
     setDeletingRecord(null)
+  }
+
+  if (!canView) {
+    return (
+      <div className="px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-md">
+          <EmptyState
+            title="Access restricted"
+            description="Your role doesn't have access to Personnel. Contact an administrator if you believe this is a mistake."
+          />
+        </div>
+      </div>
+    )
   }
 
   const columns = [
@@ -199,19 +220,6 @@ export default function PersonnelPage() {
     },
   ]
 
-  if (!canView) {
-    return (
-      <div className="px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-md">
-          <EmptyState
-            title="Access restricted"
-            description="Your role doesn't have access to Personnel. Contact an administrator if you believe this is a mistake."
-          />
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-6 px-4 py-8 sm:px-6 lg:px-8">
       <PageHeader
@@ -223,9 +231,7 @@ export default function PersonnelPage() {
         addLabel="Add Person"
         onAdd={openAddModal}
       />
-
       {loadError && <ErrorBanner message={loadError} />}
-
       <SearchFilterBar
         searchValue={search}
         onSearchChange={setSearch}
@@ -251,7 +257,6 @@ export default function PersonnelPage() {
           },
         ]}
       />
-
       <Table
         columns={columns}
         rows={filteredRecords}
@@ -261,7 +266,6 @@ export default function PersonnelPage() {
         emptyDescription="Try a different search term or filter, or add a new person."
       />
 
-      {/* Add/Edit modal */}
       <Modal
         isOpen={isFormOpen}
         onClose={() => setIsFormOpen(false)}
@@ -279,7 +283,6 @@ export default function PersonnelPage() {
       >
         <div className="space-y-4">
           {formError && <ErrorBanner message={formError} onDismiss={() => setFormError(null)} />}
-
           <div>
             <label htmlFor="per-name" className="mb-1 block text-sm font-medium text-ink-700">
               Full name
@@ -293,7 +296,6 @@ export default function PersonnelPage() {
               placeholder="e.g. Rev. Jane Doe"
             />
           </div>
-
           <div>
             <label htmlFor="per-title" className="mb-1 block text-sm font-medium text-ink-700">
               Role / title
@@ -307,8 +309,7 @@ export default function PersonnelPage() {
               placeholder="e.g. Ministry Coordinator"
             />
           </div>
-
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label htmlFor="per-category" className="mb-1 block text-sm font-medium text-ink-700">
                 Category
@@ -344,7 +345,6 @@ export default function PersonnelPage() {
               </select>
             </div>
           </div>
-
           <div>
             <label htmlFor="per-ministry" className="mb-1 block text-sm font-medium text-ink-700">
               Ministry
@@ -362,8 +362,7 @@ export default function PersonnelPage() {
               ))}
             </select>
           </div>
-
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label htmlFor="per-email" className="mb-1 block text-sm font-medium text-ink-700">
                 Email
@@ -394,7 +393,6 @@ export default function PersonnelPage() {
         </div>
       </Modal>
 
-      {/* View/detail modal */}
       <Modal
         isOpen={Boolean(viewingRecord)}
         onClose={() => setViewingRecord(null)}
@@ -471,7 +469,6 @@ export default function PersonnelPage() {
         isLoading={isDeleting}
         error={deleteError}
       />
-
       <DuplicateWarningDialog
         isOpen={Boolean(duplicate)}
         onClose={() => setDuplicate(null)}

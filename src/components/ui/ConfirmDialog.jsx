@@ -2,11 +2,6 @@ import Modal from './Modal.jsx'
 import Button from './Button.jsx'
 import ErrorBanner from './ErrorBanner.jsx'
 
-/**
- * Deleting can fail just like saving can (§8.6) — this dialog carries its own error state,
- * separate from any Add/Edit modal's error state, and the caller is responsible for clearing
- * `error` when the dialog re-opens for a new record.
- */
 export default function ConfirmDialog({
   isOpen,
   onClose,

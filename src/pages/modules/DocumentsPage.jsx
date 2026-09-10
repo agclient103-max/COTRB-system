@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth.js'
 import { canUpdate, canDelete, hasModuleAccess } from '../../data/roles.js'
-import EmptyState from '../../components/ui/EmptyState.jsx'
 import { useDocuments } from '../../hooks/useDocuments.js'
 import { MINISTRY_NAMES } from '../../data/ministries.js'
 import PageHeader from '../../components/ui/PageHeader.jsx'
@@ -14,6 +14,7 @@ import ErrorBanner from '../../components/ui/ErrorBanner.jsx'
 import Button from '../../components/ui/Button.jsx'
 import ConfirmDialog from '../../components/ui/ConfirmDialog.jsx'
 import DuplicateWarningDialog from '../../components/ui/DuplicateWarningDialog.jsx'
+import EmptyState from '../../components/ui/EmptyState.jsx'
 
 const CATEGORY_OPTIONS = [
   'Financial',
@@ -43,6 +44,7 @@ const EMPTY_FORM = {
 
 export default function DocumentsPage() {
   const { user } = useAuth()
+  const canView = hasModuleAccess(user.role, 'documents')
   const {
     records,
     isLoading,
@@ -51,7 +53,8 @@ export default function DocumentsPage() {
     updateRecord,
     mergeIntoExisting,
     removeRecord,
-  } = useDocuments()
+  } = useDocuments({ enabled: canView })
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
@@ -68,11 +71,35 @@ export default function DocumentsPage() {
   const [deleteError, setDeleteError] = useState(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
-  const [duplicate, setDuplicate] = useState(null) // { existing, pendingValues, editingId }
+  const [duplicate, setDuplicate] = useState(null)
 
   const canEdit = canUpdate(user.role, 'documents')
   const canRemove = canDelete(user.role, 'documents')
-  const canView = hasModuleAccess(user.role, 'documents')
+
+  function openAddModal() {
+    setFormError(null)
+    setEditingId(null)
+    setFormValues(EMPTY_FORM)
+    setIsFormOpen(true)
+  }
+
+  // Supports Dashboard "quick add" links like /documents?action=add — opens the Add
+  // modal automatically, then clears the param so it doesn't reopen on back/refresh.
+  useEffect(() => {
+    function openFromUrl() {
+      setFormError(null)
+      setEditingId(null)
+      setFormValues(EMPTY_FORM)
+      setIsFormOpen(true)
+    }
+    if (searchParams.get('action') === 'add' && canView) {
+      openFromUrl()
+      const next = new URLSearchParams(searchParams)
+      next.delete('action')
+      setSearchParams(next, { replace: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
 
   const filteredRecords = useMemo(() => {
     return records.filter((r) => {
@@ -82,13 +109,6 @@ export default function DocumentsPage() {
       return matchesSearch && matchesCategory && matchesStatus
     })
   }, [records, search, categoryFilter, statusFilter])
-
-  function openAddModal() {
-    setFormError(null) // fresh error state every time the modal opens, per §8.4
-    setEditingId(null)
-    setFormValues(EMPTY_FORM)
-    setIsFormOpen(true)
-  }
 
   function openEditModal(record) {
     setFormError(null)
@@ -136,7 +156,9 @@ export default function DocumentsPage() {
   async function handleKeepBoth() {
     if (!duplicate) return
     const result = duplicate.editingId
-      ? await updateRecord(duplicate.editingId, duplicate.pendingValues)
+      ? await updateRecord(duplicate.editingId, duplicate.pendingValues, {
+          skipDuplicateCheck: true,
+        })
       : await addRecord(duplicate.pendingValues, { skipDuplicateCheck: true })
     if (result.status === 'error') {
       setFormError(result.message)
@@ -147,7 +169,7 @@ export default function DocumentsPage() {
   }
 
   function openDeleteConfirm(record) {
-    setDeleteError(null) // fresh error state every time, per §8.6
+    setDeleteError(null)
     setDeletingRecord(record)
   }
 
@@ -161,6 +183,19 @@ export default function DocumentsPage() {
       return
     }
     setDeletingRecord(null)
+  }
+
+  if (!canView) {
+    return (
+      <div className="px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-md">
+          <EmptyState
+            title="Access restricted"
+            description="Your role doesn't have access to Documents. Contact an administrator if you believe this is a mistake."
+          />
+        </div>
+      </div>
+    )
   }
 
   const columns = [
@@ -201,19 +236,6 @@ export default function DocumentsPage() {
     },
   ]
 
-  if (!canView) {
-    return (
-      <div className="px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-md">
-          <EmptyState
-            title="Access restricted"
-            description="Your role doesn't have access to Documents. Contact an administrator if you believe this is a mistake."
-          />
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-6 px-4 py-8 sm:px-6 lg:px-8">
       <PageHeader
@@ -224,9 +246,7 @@ export default function DocumentsPage() {
         addLabel="Add Document"
         onAdd={openAddModal}
       />
-
       {loadError && <ErrorBanner message={loadError} />}
-
       <SearchFilterBar
         searchValue={search}
         onSearchChange={setSearch}
@@ -252,7 +272,6 @@ export default function DocumentsPage() {
           },
         ]}
       />
-
       <Table
         columns={columns}
         rows={filteredRecords}
@@ -262,7 +281,6 @@ export default function DocumentsPage() {
         emptyDescription="Try a different search term or filter, or add a new document."
       />
 
-      {/* Add/Edit modal */}
       <Modal
         isOpen={isFormOpen}
         onClose={() => setIsFormOpen(false)}
@@ -280,7 +298,6 @@ export default function DocumentsPage() {
       >
         <div className="space-y-4">
           {formError && <ErrorBanner message={formError} onDismiss={() => setFormError(null)} />}
-
           <div>
             <label htmlFor="doc-title" className="mb-1 block text-sm font-medium text-ink-700">
               Title
@@ -294,8 +311,7 @@ export default function DocumentsPage() {
               placeholder="e.g. Parish Council Meeting Minutes — June 2026"
             />
           </div>
-
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label htmlFor="doc-category" className="mb-1 block text-sm font-medium text-ink-700">
                 Category
@@ -331,7 +347,6 @@ export default function DocumentsPage() {
               </select>
             </div>
           </div>
-
           <div>
             <label htmlFor="doc-ministry" className="mb-1 block text-sm font-medium text-ink-700">
               Ministry
@@ -349,7 +364,6 @@ export default function DocumentsPage() {
               ))}
             </select>
           </div>
-
           <div>
             <label htmlFor="doc-file" className="mb-1 block text-sm font-medium text-ink-700">
               File
@@ -368,7 +382,6 @@ export default function DocumentsPage() {
         </div>
       </Modal>
 
-      {/* View/detail modal */}
       <Modal
         isOpen={Boolean(viewingRecord)}
         onClose={() => setViewingRecord(null)}
@@ -433,7 +446,6 @@ export default function DocumentsPage() {
         isLoading={isDeleting}
         error={deleteError}
       />
-
       <DuplicateWarningDialog
         isOpen={Boolean(duplicate)}
         onClose={() => setDuplicate(null)}

@@ -61,7 +61,7 @@ export default function UiKitPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [modalError, setModalError] = useState(null)
   const [isConfirmOpen, setIsConfirmOpen] = useState(false)
-  const [tableState, setTableState] = useState('data') // 'data' | 'loading' | 'empty'
+  const [tableState, setTableState] = useState('data')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
 
@@ -72,7 +72,7 @@ export default function UiKitPage() {
   })
 
   function openAddModal() {
-    setModalError(null) // fresh error state every time the modal opens, per §8.4
+    setModalError(null)
     setIsAddModalOpen(true)
   }
 
@@ -84,9 +84,7 @@ export default function UiKitPage() {
         </p>
         <h1 className="font-display text-2xl font-semibold text-ink-900 sm:text-3xl">UI Kit</h1>
         <p className="mt-2 max-w-2xl text-sm text-ink-500">
-          A live preview of every shared component the seven modules will use, built to the §8
-          standard page shape. This page is a developer preview — it won&rsquo;t exist once the real
-          modules (Phase 5 onward) are using these components directly.
+          A live preview of every shared component the seven modules use.
         </p>
       </div>
 
@@ -164,14 +162,10 @@ export default function UiKitPage() {
               push('This is a preview — real Add flow arrives with the module.', { tone: 'info' })
             }
           />
-          <p className="mt-3 text-xs text-ink-400">
-            The Add button above only appears for roles with create rights on Personnel — sign in as
-            a Member or Guest to see it disappear.
-          </p>
         </div>
       </Section>
 
-      <Section title="Search &amp; filter bar (§8.2)">
+      <Section title="Search & filter bar (§8.2)">
         <SearchFilterBar
           searchValue={search}
           onSearchChange={setSearch}
@@ -191,7 +185,7 @@ export default function UiKitPage() {
         />
       </Section>
 
-      <Section title="Table (§8.3) — responsive, with loading &amp; empty states">
+      <Section title="Table (§8.3)">
         <div className="mb-4 flex flex-wrap gap-2">
           <Button size="sm" variant="secondary" onClick={() => setTableState('data')}>
             Show data
@@ -212,7 +206,7 @@ export default function UiKitPage() {
         />
       </Section>
 
-      <Section title="Empty state (standalone)">
+      <Section title="Empty state">
         <EmptyState
           title="No documents uploaded yet"
           description="Documents added to this ministry will appear here."
@@ -253,10 +247,6 @@ export default function UiKitPage() {
               placeholder="e.g. Grace Namono"
             />
           </div>
-          <p className="text-xs text-ink-400">
-            This is a preview form. Click Save to see the error banner appear — it clears fresh
-            every time this modal opens, per §8.4.
-          </p>
         </div>
       </Modal>
 

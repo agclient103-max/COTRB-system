@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth.js'
 import { canUpdate, canDelete, hasModuleAccess } from '../../data/roles.js'
 import { useMinistries } from '../../hooks/useMinistries.js'
@@ -16,14 +17,12 @@ import EmptyState from '../../components/ui/EmptyState.jsx'
 
 const CATEGORY_OPTIONS = ['Ministry Area', 'Fellowship', 'Affiliated Church']
 const STATUS_OPTIONS = ['Active', 'Inactive']
-
 const STATUS_TONE = { Active: 'success', Inactive: 'neutral' }
 const CATEGORY_TONE = {
   'Ministry Area': 'brass',
   Fellowship: 'neutral',
   'Affiliated Church': 'success',
 }
-
 const EMPTY_FORM = {
   name: '',
   category: CATEGORY_OPTIONS[0],
@@ -36,6 +35,7 @@ const EMPTY_FORM = {
 
 export default function MinistryPage() {
   const { user } = useAuth()
+  const canView = hasModuleAccess(user.role, 'ministry')
   const {
     records,
     isLoading,
@@ -44,28 +44,52 @@ export default function MinistryPage() {
     updateRecord,
     mergeIntoExisting,
     removeRecord,
-  } = useMinistries()
+  } = useMinistries({ enabled: canView })
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
-
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [formValues, setFormValues] = useState(EMPTY_FORM)
   const [formError, setFormError] = useState(null)
   const [isSaving, setIsSaving] = useState(false)
-
   const [viewingRecord, setViewingRecord] = useState(null)
   const [deletingRecord, setDeletingRecord] = useState(null)
   const [deleteError, setDeleteError] = useState(null)
   const [isDeleting, setIsDeleting] = useState(false)
-
   const [duplicate, setDuplicate] = useState(null)
 
   const canEdit = canUpdate(user.role, 'ministry')
   const canRemove = canDelete(user.role, 'ministry')
-  const canView = hasModuleAccess(user.role, 'ministry')
+
+  function toStoredInput(values) {
+    return { ...values, memberCount: values.memberCount === '' ? null : Number(values.memberCount) }
+  }
+
+  function openAddModal() {
+    setFormError(null)
+    setEditingId(null)
+    setFormValues(EMPTY_FORM)
+    setIsFormOpen(true)
+  }
+
+  useEffect(() => {
+    function openFromUrl() {
+      setFormError(null)
+      setEditingId(null)
+      setFormValues(EMPTY_FORM)
+      setIsFormOpen(true)
+    }
+    if (searchParams.get('action') === 'add' && canView) {
+      openFromUrl()
+      const next = new URLSearchParams(searchParams)
+      next.delete('action')
+      setSearchParams(next, { replace: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
 
   const filteredRecords = useMemo(() => {
     return records.filter((r) => {
@@ -75,20 +99,6 @@ export default function MinistryPage() {
       return matchesSearch && matchesCategory && matchesStatus
     })
   }, [records, search, categoryFilter, statusFilter])
-
-  function toStoredInput(values) {
-    return {
-      ...values,
-      memberCount: values.memberCount === '' ? null : Number(values.memberCount),
-    }
-  }
-
-  function openAddModal() {
-    setFormError(null)
-    setEditingId(null)
-    setFormValues(EMPTY_FORM)
-    setIsFormOpen(true)
-  }
 
   function openEditModal(record) {
     setFormError(null)
@@ -111,7 +121,6 @@ export default function MinistryPage() {
     const input = toStoredInput(formValues)
     const result = editingId ? await updateRecord(editingId, input) : await addRecord(input)
     setIsSaving(false)
-
     if (result.status === 'error') {
       setFormError(result.message)
       return
@@ -126,24 +135,20 @@ export default function MinistryPage() {
   async function handleMerge() {
     if (!duplicate) return
     const result = await mergeIntoExisting(duplicate.existing.localId, duplicate.pendingValues)
-    if (result.status === 'error') {
-      setFormError(result.message)
-    } else {
-      setIsFormOpen(false)
-    }
+    if (result.status === 'error') setFormError(result.message)
+    else setIsFormOpen(false)
     setDuplicate(null)
   }
 
   async function handleKeepBoth() {
     if (!duplicate) return
     const result = duplicate.editingId
-      ? await updateRecord(duplicate.editingId, duplicate.pendingValues)
+      ? await updateRecord(duplicate.editingId, duplicate.pendingValues, {
+          skipDuplicateCheck: true,
+        })
       : await addRecord(duplicate.pendingValues, { skipDuplicateCheck: true })
-    if (result.status === 'error') {
-      setFormError(result.message)
-    } else {
-      setIsFormOpen(false)
-    }
+    if (result.status === 'error') setFormError(result.message)
+    else setIsFormOpen(false)
     setDuplicate(null)
   }
 
@@ -233,9 +238,7 @@ export default function MinistryPage() {
         addLabel="Add Ministry"
         onAdd={openAddModal}
       />
-
       {loadError && <ErrorBanner message={loadError} />}
-
       <SearchFilterBar
         searchValue={search}
         onSearchChange={setSearch}
@@ -261,7 +264,6 @@ export default function MinistryPage() {
           },
         ]}
       />
-
       <Table
         columns={columns}
         rows={filteredRecords}
@@ -288,7 +290,6 @@ export default function MinistryPage() {
       >
         <div className="space-y-4">
           {formError && <ErrorBanner message={formError} onDismiss={() => setFormError(null)} />}
-
           <div>
             <label htmlFor="min-name" className="mb-1 block text-sm font-medium text-ink-700">
               Ministry name
@@ -302,8 +303,7 @@ export default function MinistryPage() {
               placeholder="e.g. Prayer & Intercession"
             />
           </div>
-
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label htmlFor="min-category" className="mb-1 block text-sm font-medium text-ink-700">
                 Category
@@ -339,7 +339,6 @@ export default function MinistryPage() {
               </select>
             </div>
           </div>
-
           <div>
             <label htmlFor="min-lead" className="mb-1 block text-sm font-medium text-ink-700">
               Lead / Coordinator
@@ -353,8 +352,7 @@ export default function MinistryPage() {
               placeholder="optional"
             />
           </div>
-
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label htmlFor="min-members" className="mb-1 block text-sm font-medium text-ink-700">
                 Member count
@@ -468,7 +466,6 @@ export default function MinistryPage() {
         isLoading={isDeleting}
         error={deleteError}
       />
-
       <DuplicateWarningDialog
         isOpen={Boolean(duplicate)}
         onClose={() => setDuplicate(null)}

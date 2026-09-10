@@ -6,7 +6,6 @@ export default function ProtectedRoute() {
   const location = useLocation()
 
   if (isLoading) {
-    // Brief window while we check localStorage for a restored session.
     return (
       <div className="flex min-h-screen items-center justify-center bg-canvas">
         <p className="text-sm text-ink-400">Loading…</p>

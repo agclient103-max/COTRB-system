@@ -1,24 +1,17 @@
-import { useAuth } from '../../hooks/useAuth.js'
+import { useLocation } from 'react-router-dom'
 import { useOnlineStatus } from '../../hooks/useOnlineStatus.js'
-import { ROLE_LABELS } from '../../data/roles.js'
+import { NAV_ITEMS } from '../../data/navigation.js'
 import { Icon } from './Icon.jsx'
-
-function initialsOf(name) {
-  return name
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join('')
-    .toUpperCase()
-}
+import GlobalSearch from './GlobalSearch.jsx'
+import NotificationsDropdown from './NotificationsDropdown.jsx'
+import HelpPopover from './HelpPopover.jsx'
 
 function OfflineIndicator() {
   const isOnline = useOnlineStatus()
   return (
     <span
       className={[
-        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium',
+        'hidden items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium sm:inline-flex',
         isOnline ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700',
       ].join(' ')}
     >
@@ -32,8 +25,15 @@ function OfflineIndicator() {
   )
 }
 
+function usePageTitle() {
+  const { pathname } = useLocation()
+  if (pathname === '/') return 'Dashboard'
+  const match = NAV_ITEMS.find((item) => item.path === pathname)
+  return match?.label ?? ''
+}
+
 export default function Header({ onOpenSidebar }) {
-  const { user, logout } = useAuth()
+  const pageTitle = usePageTitle()
 
   return (
     <header className="flex h-16 flex-none items-center gap-3 border-b border-ink-100 bg-white px-4 sm:px-6">
@@ -46,31 +46,19 @@ export default function Header({ onOpenSidebar }) {
         <Icon name="menu" className="h-5 w-5" />
       </button>
 
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold text-ink-900 sm:hidden">COTRB</p>
+      {pageTitle && (
+        <p className="hidden flex-none font-display text-base font-semibold text-ink-900 md:block">
+          {pageTitle}
+        </p>
+      )}
+
+      <div className="flex flex-1 justify-center px-2 sm:px-6">
+        <GlobalSearch />
       </div>
 
       <OfflineIndicator />
-
-      <div className="hidden items-center gap-2 sm:flex">
-        <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-ink-800 text-xs font-semibold text-white">
-          {initialsOf(user.name)}
-        </span>
-        <span className="min-w-0">
-          <span className="block max-w-[10rem] truncate text-sm font-medium text-ink-900">
-            {user.name}
-          </span>
-          <span className="block truncate text-xs text-ink-500">{ROLE_LABELS[user.role]}</span>
-        </span>
-      </div>
-
-      <button
-        type="button"
-        onClick={logout}
-        className="flex-none rounded-lg border border-ink-100 px-3 py-1.5 text-sm font-medium text-ink-600 transition hover:border-ink-200 hover:bg-ink-50"
-      >
-        Sign out
-      </button>
+      <NotificationsDropdown />
+      <HelpPopover />
     </header>
   )
 }

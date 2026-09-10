@@ -1,4 +1,3 @@
-// The 9 roles, exactly as specified in the blueprint (§6.1).
 export const ROLES = {
   SUPER_ADMIN: 'SUPER_ADMIN',
   ADMIN: 'ADMIN',
@@ -43,10 +42,6 @@ export const MODULE_LABELS = {
   settings: 'Settings',
 }
 
-// The exact module access matrix from §6.2 of the blueprint.
-// Values: CRUD_APPROVE, CRUD, READ_APPROVE, READ, CR, CRU, NONE.
-// A trailing "_SCOPED" entry means access is limited to items/ministries
-// assigned to that specific user — never the full module (the "*" in §6.2).
 export const ACCESS_MATRIX = {
   documents: {
     [ROLES.SUPER_ADMIN]: 'CRUD_APPROVE',
@@ -127,47 +122,50 @@ export const ACCESS_MATRIX = {
   },
 }
 
-/**
- * Returns true if the given permission level grants any access at all.
- * Used by the Phase 2 sidebar to hide modules a role has zero access to.
- */
+// Each exact permission-level string maps to its exact capability set — an explicit
+// lookup, not substring matching. (A prior substring-based implementation checked
+// things like level.includes('D') for delete rights, which incorrectly matched the
+// word "READ" — R-E-A-D — granting delete rights to read-only roles. Never repeat
+// that mistake: add new levels here explicitly rather than pattern-matching on the
+// label text.)
+const LEVEL_FLAGS = {
+  NONE: [],
+  READ: ['R'],
+  READ_APPROVE: ['R', 'APPROVE'],
+  READ_SCOPED: ['R', 'SCOPED'],
+  CR: ['C', 'R'],
+  CR_SCOPED: ['C', 'R', 'SCOPED'],
+  CRU: ['C', 'R', 'U'],
+  CRUD: ['C', 'R', 'U', 'D'],
+  CRUD_SCOPED: ['C', 'R', 'U', 'D', 'SCOPED'],
+  CRUD_APPROVE: ['C', 'R', 'U', 'D', 'APPROVE'],
+}
+
+function hasFlag(level, flag) {
+  return (LEVEL_FLAGS[level] ?? []).includes(flag)
+}
+
 export function hasModuleAccess(role, moduleKey) {
   const level = ACCESS_MATRIX[moduleKey]?.[role]
   return Boolean(level) && level !== 'NONE'
 }
 
-/**
- * Returns true if the given permission level includes create ("C") rights.
- * All non-read-only codes in this matrix are letter combinations that include a literal
- * "C" (CRUD, CR, CRU, CR_SCOPED, CRUD_SCOPED, ...); read-only and no-access codes
- * ("READ", "READ_APPROVE", "READ_SCOPED", "NONE") never contain the letter C, so a plain
- * substring check is a safe, simple way to gate "Add" buttons across every module.
- */
 export function canCreate(role, moduleKey) {
-  const level = ACCESS_MATRIX[moduleKey]?.[role]
-  return Boolean(level) && level.includes('C')
+  return hasFlag(ACCESS_MATRIX[moduleKey]?.[role], 'C')
 }
 
-/** True when the given permission level includes approval rights. */
-export function canApprove(role, moduleKey) {
-  const level = ACCESS_MATRIX[moduleKey]?.[role]
-  return Boolean(level) && level.includes('APPROVE')
-}
-
-/** True if the given permission level includes update ("U") rights. */
 export function canUpdate(role, moduleKey) {
-  const level = ACCESS_MATRIX[moduleKey]?.[role]
-  return Boolean(level) && level.includes('U')
+  return hasFlag(ACCESS_MATRIX[moduleKey]?.[role], 'U')
 }
 
-/** True if the given permission level includes delete ("D") rights. */
 export function canDelete(role, moduleKey) {
-  const level = ACCESS_MATRIX[moduleKey]?.[role]
-  return Boolean(level) && level.includes('D')
+  return hasFlag(ACCESS_MATRIX[moduleKey]?.[role], 'D')
 }
 
-/** True when access to a module is limited to the user's own assigned ministry/items. */
+export function canApprove(role, moduleKey) {
+  return hasFlag(ACCESS_MATRIX[moduleKey]?.[role], 'APPROVE')
+}
+
 export function isScopedToOwn(role, moduleKey) {
-  const level = ACCESS_MATRIX[moduleKey]?.[role]
-  return Boolean(level) && level.includes('SCOPED')
+  return hasFlag(ACCESS_MATRIX[moduleKey]?.[role], 'SCOPED')
 }

@@ -1,76 +1,98 @@
-import { createContext, useCallback, useMemo, useState } from 'react'
-import { findMockUserById } from '../data/mockUsers.js'
-
-const SESSION_KEY = 'cotrb.auth.session'
+import { createContext, useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  getUser,
+  login as identityLogin,
+  logout as identityLogout,
+  onAuthChange,
+} from '@netlify/identity'
 
 export const AuthContext = createContext(null)
 
-function readStoredUserId() {
-  try {
-    return window.localStorage.getItem(SESSION_KEY)
-  } catch {
-    // localStorage can throw in private-browsing modes or when storage is disabled.
-    // Treat it the same as "no session" rather than crashing the app.
-    return null
+/**
+ * Converts an Identity User into the shape the rest of the app expects.
+ * Returns null if there's no session, or if there IS a session but no role
+ * has been assigned yet (app_metadata.roles is empty) — an account without a
+ * role can't do anything in this app, so it's treated the same as signed-out
+ * rather than crashing on an undefined role everywhere downstream.
+ */
+function toAppUser(identityUser) {
+  if (!identityUser) return null
+  const role = identityUser.roles?.[0]
+  if (!role) return null
+  return {
+    id: identityUser.id,
+    email: identityUser.email,
+    name: identityUser.name || identityUser.userMetadata?.full_name || identityUser.email,
+    role,
   }
 }
 
-function restoreUser() {
-  const storedId = readStoredUserId()
-  return storedId ? findMockUserById(storedId) : null
-}
-
 export function AuthProvider({ children }) {
-  // localStorage reads are synchronous, so the session can be restored directly in the
-  // initial state (a lazy initializer) rather than in an effect — no loading flicker,
-  // and no cascading-render lint warning from setting state inside an effect body.
-  const [user, setUser] = useState(restoreUser)
+  const [user, setUser] = useState(null)
+  const [isLoading, setIsLoading] = useState(true)
   const [authError, setAuthError] = useState(null)
 
-  const login = useCallback((userId) => {
-    setAuthError(null)
-    const nextUser = findMockUserById(userId)
-    if (!nextUser) {
-      setAuthError('That account could not be found. Please choose an account from the list.')
-      return false
+  useEffect(() => {
+    let cancelled = false
+
+    async function checkSession() {
+      try {
+        const identityUser = await getUser()
+        if (!cancelled) setUser(toAppUser(identityUser))
+      } catch {
+        if (!cancelled) setUser(null)
+      }
+      if (!cancelled) setIsLoading(false)
     }
-    try {
-      window.localStorage.setItem(SESSION_KEY, nextUser.id)
-    } catch {
-      // Session still works for this tab via React state even if persistence fails;
-      // let the person know it won't survive a refresh.
-      setAuthError(
-        "Signed in, but your browser blocked saving the session — you'll need to sign in again after refreshing.",
-      )
+    checkSession()
+
+    // Keeps state in sync with token refreshes and any auth change triggered
+    // elsewhere (e.g. a password recovery flow completing in another tab).
+    const unsubscribe = onAuthChange((event, identityUser) => {
+      if (event === 'logout') {
+        setUser(null)
+      } else {
+        setUser(toAppUser(identityUser))
+      }
+    })
+
+    return () => {
+      cancelled = true
+      unsubscribe()
     }
-    setUser(nextUser)
-    return true
   }, [])
 
-  const logout = useCallback(() => {
+  const login = useCallback(async (email, password) => {
+    setAuthError(null)
     try {
-      window.localStorage.removeItem(SESSION_KEY)
+      const identityUser = await identityLogin(email, password)
+      const appUser = toAppUser(identityUser)
+      if (!appUser) {
+        setAuthError('Your account has no role assigned yet. Contact an administrator.')
+        return false
+      }
+      setUser(appUser)
+      return true
+    } catch (err) {
+      setAuthError(err.message || 'Could not sign in. Please check your email and password.')
+      return false
+    }
+  }, [])
+
+  const logout = useCallback(async () => {
+    try {
+      await identityLogout()
     } catch {
-      // Nothing more we can do if storage is blocked; clearing in-memory state below
-      // still logs the person out for this tab.
+      // Still clear local state even if the server-side call fails — the
+      // person's intent to sign out should always be honored locally.
     }
     setUser(null)
     setAuthError(null)
   }, [])
 
   const value = useMemo(
-    () => ({
-      user,
-      isAuthenticated: Boolean(user),
-      // Kept for API stability: a future backend-backed auth check would be async and
-      // would need this. Restoration from localStorage today is synchronous, so it's
-      // always false.
-      isLoading: false,
-      authError,
-      login,
-      logout,
-    }),
-    [user, authError, login, logout],
+    () => ({ user, isAuthenticated: Boolean(user), isLoading, authError, login, logout }),
+    [user, isLoading, authError, login, logout],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

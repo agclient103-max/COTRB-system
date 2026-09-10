@@ -1,11 +1,6 @@
-import { generateLocalId } from '../utils/recordId.js'
+import { generateLocalId, daysAgoIso } from '../utils/recordId.js'
 
-// Every entry here is real, drawn from §3.3 (ministry coordinators) and §3.4 (fellowship
-// groups, with their real chairs and member counts) and the two affiliated churches. Member
-// counts are included only where the blueprint actually states a number — left blank
-// otherwise rather than invented.
 const RAW = [
-  // §3.3 Ministry areas (coordinator-led)
   {
     name: 'Compassion & Care',
     category: 'Ministry Area',
@@ -94,7 +89,6 @@ const RAW = [
     schedule: '',
     status: 'Active',
   },
-  // §3.4 Fellowship groups
   {
     name: "Mothers' Union",
     category: 'Fellowship',
@@ -167,7 +161,6 @@ const RAW = [
     schedule: '3 schools',
     status: 'Active',
   },
-  // Affiliated churches
   {
     name: 'Emmanuel Church Kasokoso',
     category: 'Affiliated Church',
@@ -196,4 +189,5 @@ export const MINISTRY_SEED = RAW.map((entry, index) => ({
   schedule: entry.schedule,
   status: entry.status,
   notes: '',
+  createdAt: daysAgoIso(RAW.length - index),
 }))

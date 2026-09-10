@@ -1,8 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth.js'
 import { canUpdate, canDelete, hasModuleAccess } from '../../data/roles.js'
 import { useEvents } from '../../hooks/useEvents.js'
 import { MINISTRY_NAMES } from '../../data/ministries.js'
+import { api } from '../../api/client.js'
 import PageHeader from '../../components/ui/PageHeader.jsx'
 import SearchFilterBar from '../../components/ui/SearchFilterBar.jsx'
 import Table from '../../components/ui/Table.jsx'
@@ -25,14 +27,12 @@ const TYPE_OPTIONS = [
   'Other',
 ]
 const STATUS_OPTIONS = ['Upcoming', 'Recurring', 'Completed', 'Cancelled']
-
 const STATUS_TONE = {
   Upcoming: 'brass',
   Recurring: 'neutral',
   Completed: 'success',
   Cancelled: 'danger',
 }
-
 const EMPTY_FORM = {
   title: '',
   type: TYPE_OPTIONS[0],
@@ -45,6 +45,7 @@ const EMPTY_FORM = {
 
 export default function EventsPage() {
   const { user } = useAuth()
+  const canView = hasModuleAccess(user.role, 'events')
   const {
     records,
     isLoading,
@@ -53,35 +54,53 @@ export default function EventsPage() {
     updateRecord,
     mergeIntoExisting,
     removeRecord,
-  } = useEvents()
+    replaceRecord,
+  } = useEvents({ enabled: canView })
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
-
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [formValues, setFormValues] = useState(EMPTY_FORM)
   const [formError, setFormError] = useState(null)
   const [isSaving, setIsSaving] = useState(false)
-
   const [viewingId, setViewingId] = useState(null)
   const [viewError, setViewError] = useState(null)
   const [attendeeName, setAttendeeName] = useState('')
-
   const [deletingRecord, setDeletingRecord] = useState(null)
   const [deleteError, setDeleteError] = useState(null)
   const [isDeleting, setIsDeleting] = useState(false)
-
   const [duplicate, setDuplicate] = useState(null)
 
   const canEdit = canUpdate(user.role, 'events')
   const canRemove = canDelete(user.role, 'events')
-  const canView = hasModuleAccess(user.role, 'events')
 
-  // Derived from `records` (not a stale snapshot) so the view modal stays in sync while
-  // attendees are added/removed with the modal still open.
   const viewingRecord = records.find((r) => r.localId === viewingId) ?? null
+
+  function openAddModal() {
+    setFormError(null)
+    setEditingId(null)
+    setFormValues(EMPTY_FORM)
+    setIsFormOpen(true)
+  }
+
+  useEffect(() => {
+    function openFromUrl() {
+      setFormError(null)
+      setEditingId(null)
+      setFormValues(EMPTY_FORM)
+      setIsFormOpen(true)
+    }
+    if (searchParams.get('action') === 'add' && canView) {
+      openFromUrl()
+      const next = new URLSearchParams(searchParams)
+      next.delete('action')
+      setSearchParams(next, { replace: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
 
   const filteredRecords = useMemo(() => {
     return records.filter((r) => {
@@ -93,17 +112,7 @@ export default function EventsPage() {
   }, [records, search, typeFilter, statusFilter])
 
   function toStoredInput(values) {
-    return {
-      ...values,
-      capacity: values.capacity === '' ? null : Number(values.capacity),
-    }
-  }
-
-  function openAddModal() {
-    setFormError(null)
-    setEditingId(null)
-    setFormValues(EMPTY_FORM)
-    setIsFormOpen(true)
+    return { ...values, capacity: values.capacity === '' ? null : Number(values.capacity) }
   }
 
   function openEditModal(record) {
@@ -127,7 +136,6 @@ export default function EventsPage() {
     const input = toStoredInput(formValues)
     const result = editingId ? await updateRecord(editingId, input) : await addRecord(input)
     setIsSaving(false)
-
     if (result.status === 'error') {
       setFormError(result.message)
       return
@@ -142,24 +150,20 @@ export default function EventsPage() {
   async function handleMerge() {
     if (!duplicate) return
     const result = await mergeIntoExisting(duplicate.existing.localId, duplicate.pendingValues)
-    if (result.status === 'error') {
-      setFormError(result.message)
-    } else {
-      setIsFormOpen(false)
-    }
+    if (result.status === 'error') setFormError(result.message)
+    else setIsFormOpen(false)
     setDuplicate(null)
   }
 
   async function handleKeepBoth() {
     if (!duplicate) return
     const result = duplicate.editingId
-      ? await updateRecord(duplicate.editingId, duplicate.pendingValues)
+      ? await updateRecord(duplicate.editingId, duplicate.pendingValues, {
+          skipDuplicateCheck: true,
+        })
       : await addRecord(duplicate.pendingValues, { skipDuplicateCheck: true })
-    if (result.status === 'error') {
-      setFormError(result.message)
-    } else {
-      setIsFormOpen(false)
-    }
+    if (result.status === 'error') setFormError(result.message)
+    else setIsFormOpen(false)
     setDuplicate(null)
   }
 
@@ -169,42 +173,26 @@ export default function EventsPage() {
     setViewingId(record.localId)
   }
 
-  function fullInputFor(record) {
-    return {
-      title: record.title,
-      type: record.type,
-      ministry: record.ministry,
-      when: record.when,
-      status: record.status,
-      capacity: record.capacity,
-      notes: record.notes,
-      attendees: record.attendees,
-    }
-  }
-
   async function handleAddAttendee() {
     if (!viewingRecord || !attendeeName.trim()) return
-    const updated = [...viewingRecord.attendees, attendeeName.trim()]
-    const result = await updateRecord(viewingRecord.localId, {
-      ...fullInputFor(viewingRecord),
-      attendees: updated,
-    })
-    if (result.status === 'error') {
-      setViewError(result.message)
-    } else {
+    try {
+      const body = await api.post(`/api/events/${viewingRecord.localId}/attendees`, {
+        name: attendeeName.trim(),
+      })
+      replaceRecord(body.event)
       setAttendeeName('')
+    } catch (err) {
+      setViewError(err.message)
     }
   }
 
-  async function handleRemoveAttendee(name) {
+  async function handleRemoveAttendee(attendeeId) {
     if (!viewingRecord) return
-    const updated = viewingRecord.attendees.filter((a) => a !== name)
-    const result = await updateRecord(viewingRecord.localId, {
-      ...fullInputFor(viewingRecord),
-      attendees: updated,
-    })
-    if (result.status === 'error') {
-      setViewError(result.message)
+    try {
+      const body = await api.delete(`/api/events/${viewingRecord.localId}/attendees/${attendeeId}`)
+      replaceRecord(body.event)
+    } catch (err) {
+      setViewError(err.message)
     }
   }
 
@@ -286,9 +274,7 @@ export default function EventsPage() {
         addLabel="Add Event"
         onAdd={openAddModal}
       />
-
       {loadError && <ErrorBanner message={loadError} />}
-
       <SearchFilterBar
         searchValue={search}
         onSearchChange={setSearch}
@@ -314,7 +300,6 @@ export default function EventsPage() {
           },
         ]}
       />
-
       <Table
         columns={columns}
         rows={filteredRecords}
@@ -341,7 +326,6 @@ export default function EventsPage() {
       >
         <div className="space-y-4">
           {formError && <ErrorBanner message={formError} onDismiss={() => setFormError(null)} />}
-
           <div>
             <label htmlFor="evt-title" className="mb-1 block text-sm font-medium text-ink-700">
               Title
@@ -355,8 +339,7 @@ export default function EventsPage() {
               placeholder="e.g. Youth Ministry Retreat"
             />
           </div>
-
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label htmlFor="evt-type" className="mb-1 block text-sm font-medium text-ink-700">
                 Type
@@ -392,7 +375,6 @@ export default function EventsPage() {
               </select>
             </div>
           </div>
-
           <div>
             <label htmlFor="evt-ministry" className="mb-1 block text-sm font-medium text-ink-700">
               Ministry
@@ -410,8 +392,7 @@ export default function EventsPage() {
               ))}
             </select>
           </div>
-
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label htmlFor="evt-when" className="mb-1 block text-sm font-medium text-ink-700">
                 When
@@ -503,7 +484,6 @@ export default function EventsPage() {
                 </dd>
               </div>
             </dl>
-
             <div className="border-t border-ink-100 pt-4">
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-400">
                 RSVPs / Attendees ({viewingRecord.attendees.length}
@@ -513,17 +493,17 @@ export default function EventsPage() {
                 <p className="text-xs text-ink-400">No attendees recorded yet.</p>
               ) : (
                 <ul className="mb-3 space-y-1.5">
-                  {viewingRecord.attendees.map((name) => (
+                  {viewingRecord.attendees.map((attendee) => (
                     <li
-                      key={name}
+                      key={attendee.id}
                       className="flex items-center justify-between rounded-md bg-ink-50/60 px-3 py-1.5"
                     >
-                      <span className="text-ink-700">{name}</span>
+                      <span className="text-ink-700">{attendee.name}</span>
                       {canEdit && (
                         <button
                           type="button"
-                          onClick={() => handleRemoveAttendee(name)}
-                          aria-label={`Remove ${name} from attendees`}
+                          onClick={() => handleRemoveAttendee(attendee.id)}
+                          aria-label={`Remove ${attendee.name} from attendees`}
                           className="text-ink-400 hover:text-red-600"
                         >
                           ✕
@@ -568,7 +548,6 @@ export default function EventsPage() {
         isLoading={isDeleting}
         error={deleteError}
       />
-
       <DuplicateWarningDialog
         isOpen={Boolean(duplicate)}
         onClose={() => setDuplicate(null)}

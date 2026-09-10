@@ -1,12 +1,6 @@
-import { generateLocalId } from '../utils/recordId.js'
+import { generateLocalId, daysAgoIso } from '../utils/recordId.js'
 
-// Every name here is real, from §3.1-3.3 of the blueprint — nothing invented. Contact fields
-// (email/phone) are left blank rather than fabricated, since the source data doesn't provide
-// them and inventing plausible-looking contact details for real named people isn't appropriate.
-// The Associate Vicar role is genuinely vacant per §3.1 ("TBD") — represented honestly as
-// vacant rather than assigning a placeholder name.
 const RAW = [
-  // Leadership (§3.1)
   {
     name: 'Rev. David Asiimwe',
     title: 'Vicar',
@@ -42,7 +36,6 @@ const RAW = [
     ministry: "Children's Ministry",
     status: 'Active',
   },
-  // Parish Council officers (§3.2)
   {
     name: 'Dr. Dennis Nuwagaba',
     title: 'Head of Laity',
@@ -71,7 +64,6 @@ const RAW = [
     ministry: 'Parish Council',
     status: 'Active',
   },
-  // Ministry Coordinators (§3.3, all 11)
   {
     name: 'Mrs. Dorcas Jurua',
     title: 'Ministry Coordinator',
@@ -162,4 +154,5 @@ export const PERSONNEL_SEED = RAW.map((entry, index) => ({
   email: '',
   phone: '',
   notes: '',
+  createdAt: daysAgoIso(RAW.length - index),
 }))

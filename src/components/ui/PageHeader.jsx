@@ -2,10 +2,6 @@ import { useAuth } from '../../hooks/useAuth.js'
 import { canCreate } from '../../data/roles.js'
 import Button from './Button.jsx'
 
-/**
- * count must reflect what's currently filtered/visible on screen, never a silent global
- * total that disagrees with the list below it (§8.1).
- */
 export default function PageHeader({
   title,
   count,

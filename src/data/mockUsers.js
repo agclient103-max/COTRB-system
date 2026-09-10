@@ -1,11 +1,5 @@
 import { ROLES } from './roles.js'
 
-// Nine mock accounts, one per role, for testing login/logout and (from Phase 2 onward)
-// role-based navigation and access. Mapped to real named leadership from the blueprint's
-// organizational data (§3) wherever a role has a clear real-world counterpart. Where the
-// blueprint does not assign a specific person to a role (Super Admin is a technical role,
-// not a named church office; Member/Guest are generic account types), a clearly-labeled
-// generic account is used instead of an invented name.
 export const MOCK_USERS = [
   {
     id: 'super-admin',

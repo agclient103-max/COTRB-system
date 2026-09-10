@@ -13,7 +13,6 @@
     @apply bg-canvas text-ink-900 font-sans antialiased;
   }
 
-  /* Visible keyboard focus everywhere — accessibility floor, not optional */
   :focus-visible {
     @apply outline outline-2 outline-offset-2 outline-brass-500;
   }

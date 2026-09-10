@@ -8,7 +8,6 @@ const SIZE_CLASSES = {
 }
 
 export default function Modal({ isOpen, onClose, title, children, footer, size = 'md' }) {
-  // Esc closes the modal; body scroll is locked while it's open.
   useEffect(() => {
     if (!isOpen) return undefined
 

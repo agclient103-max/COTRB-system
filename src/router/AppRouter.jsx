@@ -13,13 +13,6 @@ import ReportsPage from '../pages/modules/ReportsPage.jsx'
 import SettingsPage from '../pages/modules/SettingsPage.jsx'
 import UiKitPage from '../pages/dev/UiKitPage.jsx'
 
-// Phase 2: every protected route now renders inside AppLayout (Header + Sidebar).
-// Module routes are reachable by direct URL for any signed-in user at this stage —
-// the sidebar already hides items a role can't access per the §6.2 matrix, and since
-// these are placeholder pages with no real data or write actions yet, there is nothing
-// to gate at the route level. Real per-module enforcement arrives with the modules
-// themselves in Phase 5+, and — per the blueprint — must ultimately be re-checked
-// server-side too, not just hidden here.
 export default function AppRouter() {
   return (
     <Routes>

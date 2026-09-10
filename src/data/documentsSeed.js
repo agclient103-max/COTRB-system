@@ -1,8 +1,5 @@
-import { generateLocalId } from '../utils/recordId.js'
+import { generateLocalId, daysAgoIso } from '../utils/recordId.js'
 
-// Titles are standard administrative document types tied to real ministries/committees from
-// the blueprint — no fabricated financial figures, personal data, or specific content claims.
-// This is metadata for a records module, not real documents.
 const RAW = [
   {
     title: '2026 Parish Budget Proposal',
@@ -75,4 +72,5 @@ export const DOCUMENTS_SEED = RAW.map((entry, index) => ({
   status: entry.status,
   fileName: null,
   notes: '',
+  createdAt: daysAgoIso(RAW.length - index),
 }))

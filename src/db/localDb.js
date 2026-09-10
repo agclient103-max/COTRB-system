@@ -1,23 +1,5 @@
-/**
- * §5.1 storage layers, implemented once here and reused by every module's hook — never
- * retrofitted per module later.
- *
- * IndexedDB is the primary store. If it's unavailable (older browsers, some private-browsing
- * modes), everything transparently falls back to localStorage with the exact same interface,
- * so hooks calling these functions never need to know which backend is actually active.
- *
- * Every function here is wrapped so it never throws past its caller uncaught — callers
- * (the useDocuments/usePersonnel hooks) are expected to try/catch anyway per §8/§9, but a
- * storage layer that can silently corrupt state is worse than one that fails loudly and
- * predictably.
- */
-
 const DB_NAME = 'cotrb-local'
-// Bumped from 1 → 2 to add the 'ministry' and 'events' stores (Phase 6). IndexedDB only
-// creates new stores inside onupgradeneeded, which only fires when the version number
-// increases — anyone who already opened the Phase 5 database at version 1 needs this bump
-// or the new stores would silently never be created in their browser.
-const DB_VERSION = 2
+const DB_VERSION = 4
 
 let dbPromise = null
 
@@ -46,9 +28,15 @@ function openDatabase(storeNames) {
   return dbPromise
 }
 
-// All store names that will ever be used must be declared up front so onupgradeneeded can
-// create them in one pass. Add new module store names here as later phases introduce them.
-const KNOWN_STORES = ['documents', 'personnel', 'ministry', 'events']
+const KNOWN_STORES = [
+  'documents',
+  'personnel',
+  'ministry',
+  'events',
+  'financial',
+  'reports',
+  'auditLog',
+]
 
 function localStorageKey(storeName) {
   return `cotrb.store.${storeName}`
@@ -120,7 +108,6 @@ export async function deleteRecord(storeName, localId) {
   })
 }
 
-/** Seeds a store with initial records only if it's currently empty (first load ever). */
 export async function seedIfEmpty(storeName, seedRecords) {
   const existing = await getAllRecords(storeName)
   if (existing.length > 0) return existing

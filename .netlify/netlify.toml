@@ -2,9 +2,10 @@ headersOrigin = "config"
 redirectsOrigin = "config"
 plugins = []
 
-[functions]
+[database]
 
-[functions."*"]
+[database.migrations]
+path = "D:\\AG Business\\COTRB System\\netlify\\database\\migrations"
 
 [build]
 publish = "D:\\AG Business\\COTRB System\\dist"
@@ -26,6 +27,10 @@ NODE_VERSION = "20"
 [build.processing.js]
 
 [build.services]
+
+[functions]
+
+[functions."*"]
 
 [[headers]]
 for = "/assets/*"

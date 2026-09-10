@@ -1,39 +1,6 @@
-import { useMemo } from 'react'
+import { useState } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth.js'
-import { MOCK_USERS } from '../data/mockUsers.js'
-import { ROLE_LABELS } from '../data/roles.js'
-
-function initialsOf(name) {
-  return name
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join('')
-    .toUpperCase()
-}
-
-function AccountCard({ account, onSelect }) {
-  return (
-    <button
-      type="button"
-      onClick={() => onSelect(account.id)}
-      className="flex w-full items-center gap-3 rounded-xl border border-ink-100 bg-white p-4 text-left transition hover:border-brass-300 hover:bg-brass-50/40 hover:shadow-sm"
-    >
-      <span className="flex h-10 w-10 flex-none items-center justify-center rounded-full bg-ink-800 text-sm font-semibold text-white">
-        {initialsOf(account.name)}
-      </span>
-      <span className="min-w-0">
-        <span className="block truncate text-sm font-semibold text-ink-900">{account.name}</span>
-        <span className="block truncate text-xs text-ink-500">{account.title}</span>
-      </span>
-      <span className="ml-auto flex-none rounded-full bg-ink-50 px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide text-ink-600">
-        {ROLE_LABELS[account.role]}
-      </span>
-    </button>
-  )
-}
 
 export default function Login() {
   const { isAuthenticated, authError, login } = useAuth()
@@ -42,41 +9,34 @@ export default function Login() {
 
   const redirectTo = location.state?.from?.pathname || '/'
 
-  const groups = useMemo(() => {
-    const order = ['Leadership', 'Ministry & Staff', 'Congregation', 'System']
-    return order
-      .map((group) => ({
-        group,
-        accounts: MOCK_USERS.filter((u) => u.group === group),
-      }))
-      .filter((g) => g.accounts.length > 0)
-  }, [])
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // Guard belt-and-braces: ProtectedRoute keeps authenticated users out of most of the
-  // app's other routes, but a signed-in person landing on /login directly (e.g. a bookmark)
-  // should bounce straight back in rather than see the account picker again.
   if (isAuthenticated) {
     return <Navigate to={redirectTo} replace />
   }
 
-  function handleSelect(userId) {
-    const success = login(userId)
+  async function handleSubmit(e) {
+    e.preventDefault()
+    setIsSubmitting(true)
+    const success = await login(email, password)
+    setIsSubmitting(false)
     if (success) {
       navigate(redirectTo, { replace: true })
     }
   }
 
   return (
-    <div className="min-h-screen bg-canvas px-6 py-12">
-      <div className="mx-auto max-w-3xl">
+    <div className="flex min-h-screen items-center justify-center bg-canvas px-6 py-12">
+      <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
           <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-brass-600">
             COTRB Church Management System
           </p>
           <h1 className="font-display text-3xl font-semibold text-ink-900">Sign in</h1>
-          <p className="mx-auto mt-2 max-w-md text-sm text-ink-500">
-            This is a mock login for development — choose any account below to sign in as that role.
-            No password is required yet.
+          <p className="mx-auto mt-2 max-w-xs text-sm text-ink-500">
+            Use the email and password your administrator gave you.
           </p>
         </div>
 
@@ -89,20 +49,53 @@ export default function Login() {
           </div>
         )}
 
-        <div className="space-y-8">
-          {groups.map(({ group, accounts }) => (
-            <section key={group}>
-              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-400">
-                {group}
-              </h2>
-              <div className="grid gap-2.5 sm:grid-cols-2">
-                {accounts.map((account) => (
-                  <AccountCard key={account.id} account={account} onSelect={handleSelect} />
-                ))}
-              </div>
-            </section>
-          ))}
-        </div>
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-4 rounded-xl border border-ink-100 bg-white p-6"
+        >
+          <div>
+            <label htmlFor="login-email" className="mb-1 block text-sm font-medium text-ink-700">
+              Email
+            </label>
+            <input
+              id="login-email"
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm focus:border-brass-400 focus:outline-none focus:ring-1 focus:ring-brass-400"
+              placeholder="you@example.com"
+            />
+          </div>
+          <div>
+            <label htmlFor="login-password" className="mb-1 block text-sm font-medium text-ink-700">
+              Password
+            </label>
+            <input
+              id="login-password"
+              type="password"
+              autoComplete="current-password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full rounded-lg border border-ink-200 px-3 py-2 text-sm focus:border-brass-400 focus:outline-none focus:ring-1 focus:ring-brass-400"
+              placeholder="••••••••"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-ink-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-ink-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isSubmitting ? 'Signing in…' : 'Sign in'}
+          </button>
+        </form>
+
+        <p className="mt-6 text-center text-xs text-ink-400">
+          Don&rsquo;t have an account? Ask an administrator to create one for you from Settings →
+          Users &amp; Roles.
+        </p>
       </div>
     </div>
   )

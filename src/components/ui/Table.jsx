@@ -1,11 +1,6 @@
 import Spinner from './Spinner.jsx'
 import EmptyState from './EmptyState.jsx'
 
-/**
- * columns: [{ key, header, render?(row), hideBelow?: 'sm'|'md'|'lg' }]
- * hideBelow hides that column below the given breakpoint instead of force-fitting it —
- * per §8.3, less-central columns hide rather than cramming.
- */
 const HIDE_CLASSES = {
   sm: 'hidden sm:table-cell',
   md: 'hidden md:table-cell',

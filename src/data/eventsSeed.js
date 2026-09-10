@@ -1,8 +1,5 @@
-import { generateLocalId } from '../utils/recordId.js'
+import { generateLocalId, daysAgoIso } from '../utils/recordId.js'
 
-// Real recurring schedule (§3.1, §3.4) and real named events (§3.4). No specific future
-// calendar dates are invented for one-off events the source doesn't date — "when" is
-// descriptive text instead, honest about what is and isn't a fixed date.
 const RAW = [
   {
     title: 'Sunday Service — 9:30am',
@@ -116,4 +113,5 @@ export const EVENTS_SEED = RAW.map((entry, index) => ({
   capacity: entry.capacity,
   attendees: entry.attendees,
   notes: '',
+  createdAt: daysAgoIso(RAW.length - index),
 }))

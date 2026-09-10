@@ -4,8 +4,6 @@ export default {
   theme: {
     extend: {
       colors: {
-        // COTRB brand palette — deep vestry blue + warm brass accent,
-        // chosen to read as "parish administration," not a generic SaaS template.
         ink: {
           50: '#f1f4f9',
           100: '#dde4ef',
